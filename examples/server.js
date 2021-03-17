@@ -4,10 +4,30 @@ const webpack = require('webpack')
 const webpackDevMiddleware = require('webpack-dev-middleware')
 const webpackHotMiddleware = require('webpack-hot-middleware')
 const WebpackConfig = require('./webpack.config')
+var cookieParser = require('cookie-parser')
+const multipart = require('connect-multiparty')
+const { pathMatch } = require('webpack-hot-middleware/helpers')
+const atob = require('atob')
+const path = require('path')
 
 const app = express()
 const compiler = webpack(WebpackConfig)
 const router = express.Router()
+app.use(multipart({
+  uploadDir: path.resolve(__dirname, 'upload-file')
+}))
+app.use(cookieParser())
+
+app.use(webpackHotMiddleware(compiler))
+
+app.use(express.static(__dirname))
+
+app.use(bodyParser.json())
+app.use(bodyParser.urlencoded({ extended: true }))
+app.use(router)
+app.use(multipart(__dirname, 'upload-file'))
+
+
 
 registerSimpleRouter()
 
@@ -19,30 +39,87 @@ registerExtendRouter()
 
 registerInterceptorRouter()
 
-function registerInterceptorRouter () {
-  router.get('/interceptor/get', function(req, res) {
+registerConfigRouter()
+
+registerCancelRouter()
+
+registerMoreRouter()
+
+function registerMoreRouter() {
+  router.get('/more/304', function(req, res) {
+    res.status(304)
+    res.end()
+  })
+  router.post('/more/post', function (req, res) {
+    const auth = req.headers.authorization
+    const [type, credentials] = auth.split(' ')
+    console.log(atob(credentials))
+    const [username, password] = atob(credentials).split(':')
+    if (type === 'Basic' && username === 'Yee' && password === '123456') {
+      res.json(req.body)
+    } else {
+      res.end('UnAuthorization')
+    }
+  })
+  router.get('/more/set', function (req, res) {
+    res.cookie('userName', 'zsx')
+    res.send('设置成功')
+  })
+  router.get('/more/get', function (req, res) {
+    console.log(req.cookies)
+    res.json('hello')
+  })
+  router.post('/more/upload', function (req, res) {
+    console.log(req.body, req.files)
+
+    res.send('upload success!')
+  })
+}
+
+function registerCancelRouter() {
+  router.get('/cancel/get', function (req, res) {
+    setTimeout(() => {
+      res.json('hello')
+    }, 1000)
+  })
+
+  router.post('/cancel/post', function (req, res) {
+    setTimeout(() => {
+      res.json(req.body)
+    }, 1000);
+  })
+}
+
+function registerConfigRouter() {
+  router.post('/config/post', function (req, res) {
+    res.json(req.body)
+  })
+}
+
+function registerInterceptorRouter() {
+  router.get('/interceptor/get', function (req, res) {
     res.end('hello')
   })
 }
 
-function registerSimpleRouter () {
-  router.get('/simple/get', function(req, res) {
+function registerSimpleRouter() {
+  router.get('/simple/get', function (req, res) {
     res.json({
       msg: `hello world`
     })
   })
 }
 
-function registerBaseRouter () {
-  router.get('/base/get', function(req, res) {
+function registerBaseRouter() {
+  router.get('/base/get', function (req, res) {
     res.json(req.query)
   })
 
-  router.post('/base/post', function(req, res) {
+  router.post('/base/post', function (req, res) {
     res.json(req.body)
   })
 
-  router.post('/base/buffer', function(req, res) {
+  router.post('/base/buffer', function (req, res) {
     let msg = []
     req.on('data', (chunk) => {
       if (chunk) {
@@ -56,8 +133,8 @@ function registerBaseRouter () {
   })
 }
 
-function registerErrorRouter () {
-  router.get('/error/get', function(req, res) {
+function registerErrorRouter() {
+  router.get('/error/get', function (req, res) {
     if (Math.random() > 0.5) {
       res.json({
         msg: `hello world`
@@ -68,7 +145,7 @@ function registerErrorRouter () {
     }
   })
 
-  router.get('/error/timeout', function(req, res) {
+  router.get('/error/timeout', function (req, res) {
     setTimeout(() => {
       res.json({
         msg: `hello world`
@@ -77,38 +154,38 @@ function registerErrorRouter () {
   })
 }
 
-function registerExtendRouter () {
-  router.get('/extend/get', function(req, res) {
+function registerExtendRouter() {
+  router.get('/extend/get', function (req, res) {
     res.json({
       msg: 'hello world'
     })
   })
 
-  router.options('/extend/options', function(req, res) {
+  router.options('/extend/options', function (req, res) {
     res.end()
   })
 
-  router.delete('/extend/delete', function(req, res) {
+  router.delete('/extend/delete', function (req, res) {
     res.end()
   })
 
-  router.head('/extend/head', function(req, res) {
+  router.head('/extend/head', function (req, res) {
     res.end()
   })
 
-  router.post('/extend/post', function(req, res) {
+  router.post('/extend/post', function (req, res) {
     res.json(req.body)
   })
 
-  router.put('/extend/put', function(req, res) {
+  router.put('/extend/put', function (req, res) {
     res.json(req.body)
   })
 
-  router.patch('/extend/patch', function(req, res) {
+  router.patch('/extend/patch', function (req, res) {
     res.json(req.body)
   })
 
-  router.get('/extend/user', function(req, res) {
+  router.get('/extend/user', function (req, res) {
     res.json({
       code: 0,
       message: 'ok',
@@ -128,13 +205,7 @@ app.use(webpackDevMiddleware(compiler, {
   }
 }))
 
-app.use(webpackHotMiddleware(compiler))
 
-app.use(express.static(__dirname))
-
-app.use(bodyParser.json())
-app.use(bodyParser.urlencoded({ extended: true }))
-app.use(router)
 const port = process.env.PORT || 8080
 module.exports = app.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}, Ctrl+C to stop`)

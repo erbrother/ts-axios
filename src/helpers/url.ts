@@ -1,4 +1,10 @@
+import { relative } from "path"
 import { isDate, isPlainObject } from "./util"
+
+interface URLOrigin {
+  protocol: string,
+  host: string
+}
 
 function encode(val: string): string {
   return encodeURIComponent(val)
@@ -10,6 +16,27 @@ function encode(val: string): string {
     .replace(/%5B/gi, '[')
     .replace(/%5D/gi, ']')
 }
+
+const urlParsingNode = document.createElement('a')
+const currentOrigin = resolveURL(window.location.href)
+
+function resolveURL(url: string): URLOrigin {
+  urlParsingNode.setAttribute('href', url)
+  const {protocol, host} = urlParsingNode
+
+  return {
+    protocol,
+    host
+  }
+}
+
+export function isURLSameOrigin(requestURL: string): boolean {
+  const parsedOrigin = resolveURL(requestURL)
+  return (
+    parsedOrigin.protocol === currentOrigin.protocol &&  parsedOrigin.host === currentOrigin.host
+    )
+}
+
 
 export function buildURL(url: string, params?: any) {
   if (!params) {
@@ -59,4 +86,16 @@ export function buildURL(url: string, params?: any) {
   }
 
   return url
+}
+/**
+ * 正则表达式
+ * @param url
+ * [a-z\d\+\-\.] 匹配字母数字 + - .  
+ */
+export function isAbsoluteURL(url: string):boolean {
+  return /^([a-z][a-z\d\+\-\.]*:)?\/\//i.test(url)
+}
+
+export function combineURL(baseURL: string, relativeURL?: String): string {
+  return relativeURL ? baseURL.replace(/\+$/, '') + '/' + relativeURL.replace(/^\/+/, ''): baseURL
 }
